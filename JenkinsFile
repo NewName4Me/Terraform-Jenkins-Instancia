@@ -1,7 +1,4 @@
 pipeline {
-    parameters {
-        booleanParam(name: 'autoApprove', defaultValue: false, description: 'Automatically run apply after generating plan?')
-    } 
     environment {
         AWS_ACCESS_KEY_ID     = credentials('AWS_ACCESS_KEY_ID')
         AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
@@ -9,48 +6,23 @@ pipeline {
     }
     agent any
     stages {
-        stage('checkout') {
+        stage('Checkout y Terraform') {
             steps {
                 script {
+                    // Checkout del repositorio
                     dir("terraform") {
                         git branch: 'main',
                             url: 'https://github.com/NewName4Me/Terraform-Jenkins-Instancia.git'
                     }
+                    
+                    // Ejecutar comandos de Terraform
+                    sh '''
+                        cd terraform
+                        terraform init
+                        terraform plan -out tfplan
+                        terraform apply -auto-approve tfplan
+                    '''
                 }
-            }
-        }
-        stage('Plan') {
-            steps {
-                sh '''
-                    ls -la
-                    cd terraform
-                    ls -la
-                    terraform init
-                    terraform plan -out tfplan
-                    terraform show -no-color tfplan > tfplan.txt
-                '''
-            }
-        }
-        stage('Approval') {
-            when {
-                not {
-                    equals expected: true, actual: params.autoApprove
-                }
-            }
-            steps {
-                script {
-                    def plan = readFile 'terraform/tfplan.txt'
-                    input message: "Do you want to apply the plan?",
-                    parameters: [text(name: 'Plan', description: 'Please review the plan', defaultValue: plan)]
-                }
-            }
-        }
-        stage('Apply') {
-            steps {
-                sh '''
-                    cd terraform
-                    terraform apply -input=false tfplan
-                '''
             }
         }
     }
